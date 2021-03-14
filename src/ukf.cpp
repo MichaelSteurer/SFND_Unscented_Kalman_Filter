@@ -54,6 +54,8 @@ UKF::UKF() {
    * TODO: Complete the initialization. See ukf.h for other member properties.
    * Hint: one or more values initialized above might be wildly off...
    */
+
+  is_initialized_ = false;
 }
 
 UKF::~UKF() {}
@@ -63,6 +65,42 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
    * TODO: Complete this function! Make sure you switch between lidar and radar
    * measurements.
    */
+
+  if (!is_initialized_) {
+    Initialise(meas_package);
+    is_initialized_ = true;
+  }
+
+}
+
+void UKF::Initialise(MeasurementPackage meas_package) {
+  if(meas_package.sensor_type_ == MeasurementPackage::LASER && use_laser_) {
+    x_ << meas_package.raw_measurements_[0], 
+          meas_package.raw_measurements_[1], 
+          0, 
+          0,
+          0;
+  }
+  if(meas_package.sensor_type_ == MeasurementPackage::RADAR && use_radar_) {
+    // computation of v is taken from 
+    // https://knowledge.udacity.com/questions/398805
+
+    double rho = meas_package.raw_measurements_(0);
+    double phi = meas_package.raw_measurements_(1);
+    double rho_d = meas_package.raw_measurements_(2);
+    double p_x = rho * cos(phi);
+    double p_y = rho * sin(phi);
+    
+    double vx = rho_d * cos(phi);
+    double vy = rho_d * sin(phi);
+    double v = sqrt(vx * vx + vy * vy);
+    
+    x_ << p_x, 
+          p_y, 
+          v,
+          0, 
+          0;
+  }
 }
 
 void UKF::Prediction(double delta_t) {
