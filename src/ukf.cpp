@@ -60,6 +60,8 @@ UKF::UKF() {
   n_x_ = 5;
   n_aug_ = 7;
   lambda_ = 3 - n_aug_;
+
+  Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
 }
 
 UKF::~UKF() {}
@@ -127,8 +129,9 @@ void UKF::Prediction(double delta_t) {
   MatrixXd Xsig_aug;
   AugmentedSigmaPoints(&Xsig, &Xsig_aug);
 
-  MatrixXd Xsig_pred;
-  SigmaPointPrediction(&Xsig_aug, delta_t, &Xsig_pred);
+  SigmaPointPrediction(&Xsig_aug, delta_t);
+
+  PredictMeanAndCovariance();
 }
 
 
@@ -188,9 +191,7 @@ void UKF::AugmentedSigmaPoints(MatrixXd* Xsig, MatrixXd* Xsig_aug) {
   *Xsig_aug = Xsig_aug_temp;
 }
 
-void UKF::SigmaPointPrediction(MatrixXd* Xsig_aug, double delta_t, MatrixXd* Xsig_pred) {
-  MatrixXd Xsig_pred_temp = MatrixXd(n_aug_, 2 * n_aug_ + 1);
-
+void UKF::SigmaPointPrediction(MatrixXd* Xsig_aug, double delta_t) {
   VectorXd x_old = VectorXd(n_x_);
 
   for(int i=0; i<2*n_aug_+1; i++) {
@@ -225,12 +226,12 @@ void UKF::SigmaPointPrediction(MatrixXd* Xsig_aug, double delta_t, MatrixXd* Xsi
 
     VectorXd x_new = x_old + x_delta;
 
-    Xsig_pred_temp.col(i) = x_new;
+    Xsig_pred_.col(i) = x_new;
   }
-  *Xsig_pred = Xsig_pred_temp;
+
 }
 
-void UKF::PredictMeanAndCovariance(MatrixXd* Xsig_pred) {
+void UKF::PredictMeanAndCovariance() {
 
   // create vector for weights
   VectorXd weights = VectorXd(2*n_aug_+1);
@@ -243,19 +244,19 @@ void UKF::PredictMeanAndCovariance(MatrixXd* Xsig_pred) {
 
   // predict state mean
   // x = Xsig_pred * weights;
-  for (int i=0; i<Xsig_pred->rows(); i++) {
-    x_[i] = Xsig_pred->row(i) * weights;
+  for (int i=0; i<Xsig_pred_.rows(); i++) {
+    x_[i] = Xsig_pred_.row(i) * weights;
   }
 
   // predict state covariance matrix
-  MatrixXd x_adjusted = MatrixXd(Xsig_pred->rows(), Xsig_pred->cols());
-  for (int i=0; i<Xsig_pred->cols(); i++) {
-    x_adjusted.col(i) = Xsig_pred->col(i) - x_;
+  MatrixXd x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
+  for (int i=0; i<Xsig_pred_.cols(); i++) {
+    x_adjusted.col(i) = Xsig_pred_.col(i) - x_;
   }
 
-  MatrixXd weighted_x_adjusted = MatrixXd(Xsig_pred->rows(), Xsig_pred->cols());
-  for (int i=0; i<Xsig_pred->rows(); i++) {
-    VectorXd a = Xsig_pred->row(i).array() * weights.transpose().array();
+  MatrixXd weighted_x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
+  for (int i=0; i<Xsig_pred_.rows(); i++) {
+    VectorXd a = Xsig_pred_.row(i).array() * weights.transpose().array();
     weighted_x_adjusted.row(i) = a;
   }
 
