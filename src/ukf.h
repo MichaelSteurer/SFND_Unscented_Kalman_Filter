@@ -23,12 +23,19 @@ class UKF {
   void ProcessMeasurement(MeasurementPackage meas_package);
   void Initialise(MeasurementPackage meas_package);
 
+  void GenerateSigmaPoints(Eigen::MatrixXd* Xsig);
+  void AugmentedSigmaPoints(Eigen::MatrixXd* Xsig, Eigen::MatrixXd* Xsig_aug);
+  void SigmaPointPrediction(Eigen::MatrixXd* Xsig_aug, double delta_t, Eigen::MatrixXd* Xsig_pred);
+
+  void PredictMeanAndCovariance(Eigen::MatrixXd* Xsig_pred);
+
   /**
    * Prediction Predicts sigma points, the state, and the state covariance
    * matrix
    * @param delta_t Time between k and k+1 in s
    */
   void Prediction(double delta_t);
+  int64_t previous_timestamp_;
 
   /**
    * Updates the state and the state covariance matrix using a laser measurement
