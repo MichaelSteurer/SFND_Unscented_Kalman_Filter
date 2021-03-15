@@ -21,10 +21,10 @@ UKF::UKF() {
   P_ = MatrixXd(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 30;
+  std_a_ = 1.0;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 30;
+  std_yawdd_ = 1.0;
   
   /**
    * DO NOT MODIFY measurement noise values below.
@@ -62,7 +62,7 @@ UKF::UKF() {
   
   weights_[0] = 1.0 * lambda_ / (lambda_ + n_aug_);
   for (int i=1; i< 2*n_aug_+1; i++) {
-    weights_[i] = 1.0 / (2 * (lambda_ + 7));
+    weights_[i] = 1.0 / (2 * (lambda_ + n_aug_));
   }
 }
 
@@ -88,7 +88,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
   if(meas_package.sensor_type_ == MeasurementPackage::RADAR && use_radar_) {
     UpdateRadar(meas_package);
-}
+  }
 }
 
 void UKF::Initialise(MeasurementPackage meas_package) {
