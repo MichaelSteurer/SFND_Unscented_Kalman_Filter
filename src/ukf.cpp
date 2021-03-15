@@ -287,6 +287,114 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
    * You can also calculate the lidar NIS, if desired.
    */
 }
+
+void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
+  // set measurement dimension, radar can measure r, phi, and r_dot
+  
+  // set vector for weights
+  VectorXd weights = VectorXd::Zero(2*n_aug_+1);
+
+  double weight_0 = lambda_/(lambda_+n_aug_);
+  double weight = 0.5/(lambda_+n_aug_);
+  weights(0) = weight_0;
+
+  for (int i=1; i<2*n_aug_+1; ++i) {  
+    weights(i) = weight;
+  }
+
+  // create matrix for sigma points in measurement space
+  int n_z = 2;
+  MatrixXd Zsig_temp = MatrixXd::Zero(n_z, 2 * n_aug_ + 1);
+
+  // mean predicted measurement
+  VectorXd z_pred_temp = VectorXd::Zero(n_z);
+
+  // transform sigma points into measurement space
+  for (int i=0; i<Xsig_pred_.cols(); i++) {
+      VectorXd c = Xsig_pred_.col(i);
+      float px = c[0];
+      float py = c[1];
+    
+      float measurement_rho = sqrt(pow(px, 2) + pow(py, 2));
+      float measurement_psi = atan(py/px);
+
+      VectorXd z = VectorXd(3);
+      z << measurement_rho, measurement_psi;
+      Zsig_temp.col(i) = z;
+  }
+
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {
+    z_pred_temp = z_pred_temp + (weights(i) * Zsig_temp.col(i));
+  }
+
+  *Zsig = Zsig_temp;
+  *z_pred = z_pred_temp;
+
+  MatrixXd Z_adjusted = MatrixXd::Zero(Zsig_temp.rows(), Zsig_temp.cols());
+
+  for (int i=0; i<Zsig_temp.cols(); i++) {
+    Z_adjusted.col(i) = Zsig_temp.col(i) - z_pred_temp;
+  }
+
+  MatrixXd R = MatrixXd(n_z, n_z);
+  R << \
+    pow(std_laspx_, 2), 0, \
+    0,                  pow(std_laspy_, 2);
+
+  MatrixXd weighted_Z_adjusted = MatrixXd::Zero(Z_adjusted.rows(), Z_adjusted.cols());
+
+  for (int i=0; i<Z_adjusted.rows(); i++) {
+    VectorXd a = Z_adjusted.row(i).array() * weights.transpose().array();
+    weighted_Z_adjusted.row(i) = a;
+  }
+
+  *S = weighted_Z_adjusted * Z_adjusted.transpose() + R;
+}
+
+
+void UKF::UpdateLidarState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
+  // set measurement dimension, radar can measure r, phi, and r_dot
+  int n_z = 2;
+
+  // set vector for weights
+  VectorXd weights = VectorXd(2 * n_aug_ + 1);
+  double weight_0 = lambda_ / (lambda_ + n_aug_);
+  double weight = 0.5/(lambda_ + n_aug_);
+  weights(0) = weight_0;
+
+  for (int i=1; i<2*n_aug_+1; ++i) {  
+    weights(i) = weight;
+  }
+
+  // create matrix for cross correlation Tc
+  MatrixXd Tc = MatrixXd::Zero(n_x_, n_z);
+
+  // calculate cross correlation matrix
+  MatrixXd x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
+  for (int i=0; i<Xsig_pred_.cols(); i++) {
+    x_adjusted.col(i) = Xsig_pred_.col(i) - x_;
+  }
+
+  MatrixXd z_adjusted = MatrixXd(Zsig->rows(), Zsig->cols());
+  for (int i=0; i<Zsig->cols(); i++) {
+    z_adjusted.col(i) = Zsig->col(i) - *z_pred;
+  }
+
+  MatrixXd weighted_x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
+  for (int i=0; i<Xsig_pred_.rows(); i++) {
+    VectorXd a = x_adjusted.row(i).array() * weights.transpose().array();
+    weighted_x_adjusted.row(i) = a;
+  }
+
+  Tc = weighted_x_adjusted * z_adjusted.transpose();
+
+  // calculate Kalman gain K;
+  MatrixXd K = Tc * (*S).inverse();
+
+  // update state mean and covariance matrix
+  x_ = x_ + K * (*z-*z_pred);  
+  P_ = P_ - K * *S * K.transpose();
+}
 /* Update Lidar */
 
 /* Update Radar */
@@ -305,7 +413,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   PredictRadarMeasurement(&Zsig, &z_pred, &S);
 
   VectorXd z = meas_package.raw_measurements_;
-  UpdateState(&z, &Zsig, &z_pred, &S);
+  UpdateRadarState(&z, &Zsig, &z_pred, &S);
 }
 
 void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
@@ -375,7 +483,7 @@ void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
   *S = weighted_Z_adjusted * Z_adjusted.transpose() + R;
 }
 
-void UKF::UpdateState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
+void UKF::UpdateRadarState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
   // set measurement dimension, radar can measure r, phi, and r_dot
   int n_z = 3;
 
