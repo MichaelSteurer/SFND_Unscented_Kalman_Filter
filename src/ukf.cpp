@@ -50,11 +50,6 @@ UKF::UKF() {
    * End DO NOT MODIFY section for measurement noise values 
    */
   
-  /**
-   * TODO: Complete the initialization. See ukf.h for other member properties.
-   * Hint: one or more values initialized above might be wildly off...
-   */
-
   is_initialized_ = false;
 
   n_x_ = 5;
@@ -74,11 +69,6 @@ UKF::UKF() {
 UKF::~UKF() {}
 
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
-  /**
-   * TODO: Complete this function! Make sure you switch between lidar and radar
-   * measurements.
-   */
-
   if (!is_initialized_) {
     previous_timestamp_ = meas_package.timestamp_;
 
@@ -282,13 +272,6 @@ void UKF::PredictMeanAndCovariance() {
 
 /* Update Lidar */
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
-  /**
-   * TODO: Complete this function! Use lidar data to update the belief 
-   * about the object's position. Modify the state vector, x_, and 
-   * covariance, P_.
-   * You can also calculate the lidar NIS, if desired.
-   */
-
   VectorXd z_pred;
   MatrixXd S;
   MatrixXd Zsig;
@@ -350,13 +333,6 @@ void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
 
 /* Update Radar */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
-  /**
-   * TODO: Complete this function! Use radar data to update the belief 
-   * about the object's position. Modify the state vector, x_, and 
-   * covariance, P_.
-   * You can also calculate the radar NIS, if desired.
-   */
-
   VectorXd z_pred;
   MatrixXd S;
   MatrixXd Zsig;
