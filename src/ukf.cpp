@@ -125,12 +125,9 @@ void UKF::Initialise(MeasurementPackage meas_package) {
           v,
           0, 
           0;
-
-  } else {
   }
 }
 
-/* Prediction */
 void UKF::Prediction(double delta_t) {
   /**
    * TODO: Complete this function! Estimate the object's location. 
@@ -242,7 +239,6 @@ void UKF::SigmaPointPrediction(MatrixXd* Xsig_aug, double delta_t) {
 
     Xsig_pred_.col(i) = x_new;
   }
-
 }
 
 void UKF::PredictMeanAndCovariance() {
@@ -268,9 +264,7 @@ void UKF::PredictMeanAndCovariance() {
 
   P_ = weighted_x_adjusted * x_adjusted.transpose();
 }
-/* Prediction */
 
-/* Update Lidar */
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
   VectorXd z_pred;
   MatrixXd S;
@@ -329,9 +323,7 @@ void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
   *S = weighted_Z_adjusted * Z_adjusted.transpose() + R;
 
 }
-/* Update Lidar */
 
-/* Update Radar */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
   VectorXd z_pred;
   MatrixXd S;
