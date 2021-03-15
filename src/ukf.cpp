@@ -279,7 +279,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   PredictLidarMeasurement(&Zsig, &z_pred, &S);
 
   VectorXd z = meas_package.raw_measurements_;
-  UpdateState(&z, &Zsig, &z_pred, &S, 3);
+  UpdateState(&z, &Zsig, &z_pred, &S, 2);
 }
 
 void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
@@ -340,7 +340,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   PredictRadarMeasurement(&Zsig, &z_pred, &S);
 
   VectorXd z = meas_package.raw_measurements_;
-  UpdateState(&z, &Zsig, &z_pred, &S, 5);
+  UpdateState(&z, &Zsig, &z_pred, &S, 3);
 }
 
 void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
@@ -399,33 +399,34 @@ void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
 }
 
 void UKF::UpdateState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S, int n_z) {
+  // Code copied from the solution in the class
+
   // create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd::Zero(n_x_, n_z);
 
-  // calculate cross correlation matrix
+
   MatrixXd x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
-  for (int i=0; i<Xsig_pred_.cols(); i++) {
-    x_adjusted.col(i) = Xsig_pred_.col(i) - x_;
-  }
-
   MatrixXd z_adjusted = MatrixXd(Zsig->rows(), Zsig->cols());
-  for (int i=0; i<Zsig->cols(); i++) {
-    z_adjusted.col(i) = Zsig->col(i) - *z_pred;
+  for (int i=0; i<2 * n_aug_ + 1; i++) {
+    VectorXd x_adjusted = Xsig_pred_.col(i) - x_;
+    while (x_adjusted(1)> M_PI) x_adjusted(1)-=2.*M_PI;
+    while (x_adjusted(1)<-M_PI) x_adjusted(1)+=2.*M_PI;
+    
+    VectorXd z_adjusted = Zsig->col(i) - *z_pred;
+    while (z_adjusted(1)> M_PI) z_adjusted(1)-=2.*M_PI;
+    while (z_adjusted(1)<-M_PI) z_adjusted(1)+=2.*M_PI;
+
+    Tc = Tc + weights_(i) * x_adjusted * z_adjusted.transpose();
   }
 
-  MatrixXd weighted_x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
-  for (int i=0; i<Xsig_pred_.rows(); i++) {
-    VectorXd a = x_adjusted.row(i).array() * weights_.transpose().array();
-    weighted_x_adjusted.row(i) = a;
-  }
-
-  Tc = weighted_x_adjusted * z_adjusted.transpose();
+  VectorXd z_diff = *z - *z_pred;
+  while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
+  while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
 
   // calculate Kalman gain K;
-  MatrixXd K = Tc * (*S).inverse();
+  MatrixXd K = Tc * S->inverse();
 
   // update state mean and covariance matrix
-  x_ = x_ + K * (*z-*z_pred);  
+  x_ = x_ + K * z_diff; 
   P_ = P_ - K * *S * K.transpose();
 }
-/* Update Radar */
