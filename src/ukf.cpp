@@ -62,6 +62,13 @@ UKF::UKF() {
   lambda_ = 3 - n_aug_;
 
   Xsig_pred_ = MatrixXd::Zero(n_x_, 2 * n_aug_ + 1);
+
+  weights_ = VectorXd(2*n_aug_+1);
+  
+  weights_[0] = 1.0 * lambda_ / (lambda_ + n_aug_);
+  for (int i=1; i< 2*n_aug_+1; i++) {
+    weights_[i] = 1.0 / (2 * (lambda_ + 7));
+  }
 }
 
 UKF::~UKF() {}
@@ -77,9 +84,11 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
     Initialise(meas_package);
     is_initialized_ = true;
-  } else {
-    float dt = (meas_package.timestamp_ - previous_timestamp_) / 1000000.0;
-    previous_timestamp_ = meas_package.timestamp_;
+    return;
+  }
+
+  float dt = (meas_package.timestamp_ - previous_timestamp_) / 1000000.0;
+  previous_timestamp_ = meas_package.timestamp_;
 
     Prediction(dt);
   }
@@ -245,19 +254,10 @@ void UKF::SigmaPointPrediction(MatrixXd* Xsig_aug, double delta_t) {
 
 void UKF::PredictMeanAndCovariance() {
 
-  // create vector for weights
-  VectorXd weights = VectorXd(2*n_aug_+1);
-  
-  // set weights
-  weights[0] = 1.0 * lambda_ / (lambda_ + n_aug_);
-  for (int i=1; i< 2*n_aug_+1; i++) {
-    weights[i] = 1.0 / (2 * (lambda_ + 7));
-  }
-
   // predict state mean
   // x = Xsig_pred * weights;
   for (int i=0; i<Xsig_pred_.rows(); i++) {
-    x_[i] = Xsig_pred_.row(i) * weights;
+    x_[i] = Xsig_pred_.row(i) * weights_;
   }
 
   // predict state covariance matrix
@@ -270,7 +270,7 @@ void UKF::PredictMeanAndCovariance() {
   MatrixXd weighted_x_adjusted = MatrixXd::Zero(Xsig_pred_.rows(), Xsig_pred_.cols());
 
   for (int i=0; i<Xsig_pred_.rows(); i++) {
-    VectorXd a = Xsig_pred_.row(i).array() * weights.transpose().array();
+    VectorXd a = Xsig_pred_.row(i).array() * weights_.transpose().array();
     weighted_x_adjusted.row(i) = a;
   }
 
@@ -289,19 +289,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 }
 
 void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
-  // set measurement dimension, radar can measure r, phi, and r_dot
-  
-  // set vector for weights
-  VectorXd weights = VectorXd::Zero(2*n_aug_+1);
-
-  double weight_0 = lambda_/(lambda_+n_aug_);
-  double weight = 0.5/(lambda_+n_aug_);
-  weights(0) = weight_0;
-
-  for (int i=1; i<2*n_aug_+1; ++i) {  
-    weights(i) = weight;
-  }
-
   // create matrix for sigma points in measurement space
   int n_z = 2;
   MatrixXd Zsig_temp = MatrixXd::Zero(n_z, 2 * n_aug_ + 1);
@@ -324,7 +311,7 @@ void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
   }
 
   for (int i = 0; i < 2 * n_aug_ + 1; i++) {
-    z_pred_temp = z_pred_temp + (weights(i) * Zsig_temp.col(i));
+    z_pred_temp = z_pred_temp + (weights_(i) * Zsig_temp.col(i));
   }
 
   *Zsig = Zsig_temp;
@@ -344,7 +331,7 @@ void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
   MatrixXd weighted_Z_adjusted = MatrixXd::Zero(Z_adjusted.rows(), Z_adjusted.cols());
 
   for (int i=0; i<Z_adjusted.rows(); i++) {
-    VectorXd a = Z_adjusted.row(i).array() * weights.transpose().array();
+    VectorXd a = Z_adjusted.row(i).array() * weights_.transpose().array();
     weighted_Z_adjusted.row(i) = a;
   }
 
@@ -355,16 +342,6 @@ void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
 void UKF::UpdateLidarState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
   // set measurement dimension, radar can measure r, phi, and r_dot
   int n_z = 2;
-
-  // set vector for weights
-  VectorXd weights = VectorXd(2 * n_aug_ + 1);
-  double weight_0 = lambda_ / (lambda_ + n_aug_);
-  double weight = 0.5/(lambda_ + n_aug_);
-  weights(0) = weight_0;
-
-  for (int i=1; i<2*n_aug_+1; ++i) {  
-    weights(i) = weight;
-  }
 
   // create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd::Zero(n_x_, n_z);
@@ -382,7 +359,7 @@ void UKF::UpdateLidarState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, Matrix
 
   MatrixXd weighted_x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
   for (int i=0; i<Xsig_pred_.rows(); i++) {
-    VectorXd a = x_adjusted.row(i).array() * weights.transpose().array();
+    VectorXd a = x_adjusted.row(i).array() * weights_.transpose().array();
     weighted_x_adjusted.row(i) = a;
   }
 
@@ -418,17 +395,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
 void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
   // set measurement dimension, radar can measure r, phi, and r_dot
-  
-  // set vector for weights
-  VectorXd weights = VectorXd::Zero(2*n_aug_+1);
-
-  double weight_0 = lambda_/(lambda_+n_aug_);
-  double weight = 0.5/(lambda_+n_aug_);
-  weights(0) = weight_0;
-
-  for (int i=1; i<2*n_aug_+1; ++i) {  
-    weights(i) = weight;
-  }
 
   // create matrix for sigma points in measurement space
   int n_z = 3;
@@ -476,7 +442,7 @@ void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
   MatrixXd weighted_Z_adjusted = MatrixXd::Zero(Z_adjusted.rows(), Z_adjusted.cols());
 
   for (int i=0; i<Z_adjusted.rows(); i++) {
-    VectorXd a = Z_adjusted.row(i).array() * weights.transpose().array();
+    VectorXd a = Z_adjusted.row(i).array() * weights_.transpose().array();
     weighted_Z_adjusted.row(i) = a;
   }
 
@@ -486,16 +452,6 @@ void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
 void UKF::UpdateRadarState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
   // set measurement dimension, radar can measure r, phi, and r_dot
   int n_z = 3;
-
-  // set vector for weights
-  VectorXd weights = VectorXd(2 * n_aug_ + 1);
-  double weight_0 = lambda_ / (lambda_ + n_aug_);
-  double weight = 0.5/(lambda_ + n_aug_);
-  weights(0) = weight_0;
-
-  for (int i=1; i<2*n_aug_+1; ++i) {  
-    weights(i) = weight;
-  }
 
   // create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd::Zero(n_x_, n_z);
@@ -513,7 +469,7 @@ void UKF::UpdateRadarState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, Matrix
 
   MatrixXd weighted_x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
   for (int i=0; i<Xsig_pred_.rows(); i++) {
-    VectorXd a = x_adjusted.row(i).array() * weights.transpose().array();
+    VectorXd a = x_adjusted.row(i).array() * weights_.transpose().array();
     weighted_x_adjusted.row(i) = a;
   }
 
