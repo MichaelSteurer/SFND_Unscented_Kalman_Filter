@@ -312,12 +312,9 @@ void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
       VectorXd c = Xsig_pred_.col(i);
       float px = c[0];
       float py = c[1];
-    
-      float measurement_rho = sqrt(pow(px, 2) + pow(py, 2));
-      float measurement_psi = atan(py/px);
 
-      VectorXd z = VectorXd(3);
-      z << measurement_rho, measurement_psi;
+      VectorXd z = VectorXd(n_z);
+      z << px, py;
       Zsig_temp.col(i) = z;
   }
 
@@ -350,12 +347,6 @@ void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
 
 }
 /* Update Lidar */
-
-
-
-
-
-
 
 /* Update Radar */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
