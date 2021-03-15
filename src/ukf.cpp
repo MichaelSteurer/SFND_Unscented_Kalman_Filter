@@ -1,6 +1,6 @@
 #include "ukf.h"
 #include "Eigen/Dense"
-
+#include <iostream>
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
@@ -256,7 +256,6 @@ void UKF::SigmaPointPrediction(MatrixXd* Xsig_aug, double delta_t) {
 }
 
 void UKF::PredictMeanAndCovariance() {
-
   // predict state mean
   // x = Xsig_pred * weights;
   for (int i=0; i<Xsig_pred_.rows(); i++) {
@@ -289,6 +288,15 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
    * covariance, P_.
    * You can also calculate the lidar NIS, if desired.
    */
+
+  VectorXd z_pred;
+  MatrixXd S;
+  MatrixXd Zsig;
+
+  PredictLidarMeasurement(&Zsig, &z_pred, &S);
+
+  VectorXd z = meas_package.raw_measurements_;
+  UpdateState(&z, &Zsig, &z_pred, &S, 3);
 }
 
 void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
@@ -339,43 +347,15 @@ void UKF::PredictLidarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
   }
 
   *S = weighted_Z_adjusted * Z_adjusted.transpose() + R;
-}
 
-
-void UKF::UpdateLidarState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
-  // set measurement dimension, radar can measure r, phi, and r_dot
-  int n_z = 2;
-
-  // create matrix for cross correlation Tc
-  MatrixXd Tc = MatrixXd::Zero(n_x_, n_z);
-
-  // calculate cross correlation matrix
-  MatrixXd x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
-  for (int i=0; i<Xsig_pred_.cols(); i++) {
-    x_adjusted.col(i) = Xsig_pred_.col(i) - x_;
-  }
-
-  MatrixXd z_adjusted = MatrixXd(Zsig->rows(), Zsig->cols());
-  for (int i=0; i<Zsig->cols(); i++) {
-    z_adjusted.col(i) = Zsig->col(i) - *z_pred;
-  }
-
-  MatrixXd weighted_x_adjusted = MatrixXd(Xsig_pred_.rows(), Xsig_pred_.cols());
-  for (int i=0; i<Xsig_pred_.rows(); i++) {
-    VectorXd a = x_adjusted.row(i).array() * weights_.transpose().array();
-    weighted_x_adjusted.row(i) = a;
-  }
-
-  Tc = weighted_x_adjusted * z_adjusted.transpose();
-
-  // calculate Kalman gain K;
-  MatrixXd K = Tc * (*S).inverse();
-
-  // update state mean and covariance matrix
-  x_ = x_ + K * (*z-*z_pred);  
-  P_ = P_ - K * *S * K.transpose();
 }
 /* Update Lidar */
+
+
+
+
+
+
 
 /* Update Radar */
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
@@ -393,7 +373,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   PredictRadarMeasurement(&Zsig, &z_pred, &S);
 
   VectorXd z = meas_package.raw_measurements_;
-  UpdateRadarState(&z, &Zsig, &z_pred, &S);
+  UpdateState(&z, &Zsig, &z_pred, &S, 5);
 }
 
 void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
@@ -429,18 +409,17 @@ void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
   *Zsig = Zsig_temp;
   *z_pred = z_pred_temp;
 
-  MatrixXd Z_adjusted = MatrixXd::Zero(Zsig_temp.rows(), Zsig_temp.cols());
-
-  for (int i=0; i<Zsig_temp.cols(); i++) {
-    Z_adjusted.col(i) = Zsig_temp.col(i) - z_pred_temp;
-  }
-
   MatrixXd R = MatrixXd(n_z, n_z);
   R << \
     pow(std_radr_, 2), 0,                   0, \
     0,                 pow(std_radphi_, 2), 0, \
     0,                 0,                   pow(std_radrd_, 2);
 
+  MatrixXd Z_adjusted = MatrixXd::Zero(Zsig_temp.rows(), Zsig_temp.cols());
+
+  for (int i=0; i<Zsig_temp.cols(); i++) {
+    Z_adjusted.col(i) = Zsig_temp.col(i) - z_pred_temp;
+  }
 
   MatrixXd weighted_Z_adjusted = MatrixXd::Zero(Z_adjusted.rows(), Z_adjusted.cols());
 
@@ -452,10 +431,7 @@ void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
   *S = weighted_Z_adjusted * Z_adjusted.transpose() + R;
 }
 
-void UKF::UpdateRadarState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S) {
-  // set measurement dimension, radar can measure r, phi, and r_dot
-  int n_z = 3;
-
+void UKF::UpdateState(VectorXd* z, MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S, int n_z) {
   // create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd::Zero(n_x_, n_z);
 

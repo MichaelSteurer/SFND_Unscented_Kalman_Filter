@@ -29,10 +29,9 @@ class UKF {
   void PredictMeanAndCovariance();
   
   void PredictRadarMeasurement(Eigen::MatrixXd* Zsig, Eigen::VectorXd* z_pred, Eigen::MatrixXd* S);
-  void UpdateRadarState(Eigen::VectorXd* z, Eigen::MatrixXd* Zsig, Eigen::VectorXd* z_pred, Eigen::MatrixXd* S);
-
+  
   void PredictLidarMeasurement(Eigen::MatrixXd* Zsig, Eigen::VectorXd* z_pred, Eigen::MatrixXd* S);
-  void UpdateLidarState(Eigen::VectorXd* z, Eigen::MatrixXd* Zsig, Eigen::VectorXd* z_pred, Eigen::MatrixXd* S);
+  void UpdateState(Eigen::VectorXd* z, Eigen::MatrixXd* Zsig, Eigen::VectorXd* z_pred, Eigen::MatrixXd* S, int n_z);
 
   /**
    * Prediction Predicts sigma points, the state, and the state covariance
