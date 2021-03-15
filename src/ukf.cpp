@@ -363,14 +363,16 @@ void UKF::PredictRadarMeasurement(MatrixXd* Zsig, VectorXd* z_pred, MatrixXd* S)
       float psi_dot = c[4];
     
       float measurement_rho = sqrt(pow(px, 2) + pow(py, 2));
-      float measurement_psi = atan(py/px);
+      float measurement_psi = atan2(py, px);
       float measurement_rho_dot = (px * cos(psi) * v + py * sin(psi) * v) / (sqrt(pow(px, 2) + pow(py, 2)));
 
       VectorXd z = VectorXd(3);
       z << measurement_rho, measurement_psi, measurement_rho_dot;
       Zsig_temp.col(i) = z;
+  }
 
-      z_pred_temp += Zsig_temp * weights;
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {
+    z_pred_temp = z_pred_temp + (weights_(i) * Zsig_temp.col(i));
   }
 
   *Zsig = Zsig_temp;
